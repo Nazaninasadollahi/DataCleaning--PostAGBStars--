@@ -1,6 +1,6 @@
 from astropy.io import fits
 from astropy import units as u
-from astropy.coordinates import EarthLocation, SkyCoord, FK5, GCRS
+from astropy.coordinates import EarthLocation, SkyCoord, FK5, GCRS, ITRS
 from astropy.time import Time
 import numpy as np
 
@@ -72,14 +72,35 @@ else:
 
 # Step 6: Update comments in headers to keep only '(deg)'
 for key in ['RA', 'DEC']:
-    # Update primary header comment
     if key in header:
-        header.set(key, header[key], '(deg)')  # Set comment to '(deg)'
-    # Update table header comment
+        header.set(key, header[key], '(deg)')
     if key in table_header:
         table_header.set(key, table_header[key], '(deg)')
 
-# Step 7: Update other header metadata (both HDU 0 and HDU 1)
+# Step 7: Transform spectral reference frame to geocentric if TOPOCENT
+if header.get('SPECSYS') == 'TOPOCENT' or table_header.get('SPECSYS') == 'TOPOCENT':
+    print("Transforming spectral reference frame from topocentric to geocentric.")
+    # Calculate observatory's velocity relative to Earth's center
+    # Get observatory's position in ITRS frame
+    obs_itrs = observatory.get_itrs(obstime=obs_time)
+    # Compute velocity by taking time derivative (approximate)
+    dt = 1 * u.s  # Small time step for velocity calculation
+    obs_itrs_t2 = observatory.get_itrs(obstime=obs_time + dt)
+    velocity = (obs_itrs_t2.cartesian - obs_itrs.cartesian) / dt
+    # Project velocity along line of sight to target
+    target_direction = coords_icrs = coords.transform_to('icrs').cartesian
+    velocity_correction = velocity.dot(target_direction)  # Radial velocity component
+    c = 299792458 * u.m/u.s  # Speed of light
+    # Update spectral axis (e.g., WAVE) in both headers, using Angstrom units
+    for hdu_header in [header, table_header]:
+        if 'WAVE' in hdu_header:
+            wavelength = hdu_header['WAVE'] * u.Angstrom  # Use Angstrom as specified
+            wavelength_geocentric = wavelength * (1 - velocity_correction/c)
+            hdu_header['WAVE'] = wavelength_geocentric.to(u.Angstrom).value
+            hdu_header['SPECSYS'] = 'GEOCENT'
+            hdu_header['COMMENT'] = 'Spectral axis transformed from topocentric to geocentric'
+
+# Step 8: Update other header metadata (both HDU 0 and HDU 1)
 header['SPECSYS'] = 'GEOCENT'
 header['ESO TEL GEOLAT'] = 0.0
 header['ESO TEL GEOLON'] = 0.0
@@ -89,7 +110,7 @@ header['COMMENT'] = 'Coordinates transformed from FK5 (J2000.0) to geocentric (G
 header['HISTORY'] = f'Original DATE-OBS: {date_obs}'
 header['HISTORY'] = f'Original RA: {ra.value}, DEC: {dec.value}'
 
-table_header['FRAME'] = 'GEOCENT'
+table_header['SPECSYS'] = 'GEOCENT'
 table_header['ESO TEL GEOLAT'] = 0.0
 table_header['ESO TEL GEOLON'] = 0.0
 table_header['ESO TEL GEOELEV'] = 0.0
@@ -98,7 +119,7 @@ table_header['COMMENT'] = 'Coordinates transformed from FK5 (J2000.0) to geocent
 table_header['HISTORY'] = f'Original DATE-OBS: {date_obs}'
 table_header['HISTORY'] = f'Original RA: {ra.value}, DEC: {dec.value}'
 
-# Step 8: Save the new FITS file
+# Step 9: Save the new FITS file
 output_file = 'output_geocentric_file.fits'
 try:
     primary_hdu = fits.PrimaryHDU(header=header)
