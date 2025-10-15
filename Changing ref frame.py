@@ -48,7 +48,7 @@ except KeyError:
         raise KeyError("RA/DEC not found in data or header.")
 
 # Step 4: Transform to geocentric frame (GCRS)
-# Use FK5 frame with EQUINOX = 2000.0
+# Use FK5 frame with EQUINOX = 2000.0 .I know it from read fits files code result.
 coords = SkyCoord(ra=ra, dec=dec, frame='fk5', equinox='J2000.0', obstime=obs_time, location=observatory)
 coords_geocentric = coords.transform_to(GCRS(obstime=obs_time))
 
