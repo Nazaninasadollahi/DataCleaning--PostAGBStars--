@@ -46,15 +46,16 @@ except KeyError:
         print("RA/DEC not found in data table. Using header values.")
     except KeyError:
         raise KeyError("RA/DEC not found in data or header.")
+print(ra, dec)
 
 # Step 4: Transform to geocentric frame (GCRS)
-# Use FK5 frame with EQUINOX = 2000.0 .I know it from read fits files code result.
 coords = SkyCoord(ra=ra, dec=dec, frame='fk5', equinox='J2000.0', obstime=obs_time, location=observatory)
 coords_geocentric = coords.transform_to(GCRS(obstime=obs_time))
 
 # Extract transformed RA/Dec
 ra_geocentric = coords_geocentric.ra
 dec_geocentric = coords_geocentric.dec
+print(ra_geocentric, dec_geocentric)
 
 # Step 5: Update the FITS data
 new_data = data.copy()  # Copy to preserve table structure
@@ -62,20 +63,42 @@ if 'RA' in data.dtype.names and 'DEC' in data.dtype.names:
     new_data['RA'] = np.array(ra_geocentric.value, dtype=data['RA'].dtype)
     new_data['DEC'] = np.array(dec_geocentric.value, dtype=data['DEC'].dtype)
 else:
+    # Update RA/DEC in both primary header (HDU 0) and table header (HDU 1)
     header['RA'] = ra_geocentric.value
     header['DEC'] = dec_geocentric.value
-    print("No RA/DEC columns in data. Updated header instead.")
+    table_header['RA'] = ra_geocentric.value
+    table_header['DEC'] = dec_geocentric.value
+    print("No RA/DEC columns in data. Updated headers for HDU 0 and HDU 1.")
 
-# Step 6: Update the FITS header
-header['FRAME'] = 'GEOCENT'  # Indicate geocentric frame
-header['ESO TEL GEOLAT'] = 0.0  # Set to 0 for geocentric frame
+# Step 6: Update comments in headers to keep only '(deg)'
+for key in ['RA', 'DEC']:
+    # Update primary header comment
+    if key in header:
+        header.set(key, header[key], '(deg)')  # Set comment to '(deg)'
+    # Update table header comment
+    if key in table_header:
+        table_header.set(key, table_header[key], '(deg)')
+
+# Step 7: Update other header metadata (both HDU 0 and HDU 1)
+header['SPECSYS'] = 'GEOCENT'
+header['ESO TEL GEOLAT'] = 0.0
 header['ESO TEL GEOLON'] = 0.0
 header['ESO TEL GEOELEV'] = 0.0
-header['RADECSYS'] = 'ICRS'  # GCRS aligns with ICRS
+header['RADECSYS'] = 'ICRS'
 header['COMMENT'] = 'Coordinates transformed from FK5 (J2000.0) to geocentric (GCRS) frame'
 header['HISTORY'] = f'Original DATE-OBS: {date_obs}'
+header['HISTORY'] = f'Original RA: {ra.value}, DEC: {dec.value}'
 
-# Step 7: Save the new FITS file
+table_header['FRAME'] = 'GEOCENT'
+table_header['ESO TEL GEOLAT'] = 0.0
+table_header['ESO TEL GEOLON'] = 0.0
+table_header['ESO TEL GEOELEV'] = 0.0
+table_header['RADECSYS'] = 'ICRS'
+table_header['COMMENT'] = 'Coordinates transformed from FK5 (J2000.0) to geocentric (GCRS) frame'
+table_header['HISTORY'] = f'Original DATE-OBS: {date_obs}'
+table_header['HISTORY'] = f'Original RA: {ra.value}, DEC: {dec.value}'
+
+# Step 8: Save the new FITS file
 output_file = 'output_geocentric_file.fits'
 try:
     primary_hdu = fits.PrimaryHDU(header=header)
