@@ -76,25 +76,15 @@ for i, hdu in enumerate(hdul):
                 c = 299792458.0         # speed of light [m/s]
                 hc = h * c              # J·m
 
-                # Step 1: Convert wavelength to meters
-                lam_m = wave * 1e-10    # Å → m
 
-                # Step 2: Convert flux to J/m²/s/Å
-                # (1 erg = 1e-7 J, 1 cm² = 1e-4 m² ⇒ multiply by 1e-3)
-                flux_J_m2_s_A = flux * 1e-16 * 1e-3
-
-                # Step 3: Convert to photon flux per m² per s per Å
-                flux_photon_m2_s_A = flux_J_m2_s_A * lam_m / hc
-
-                # Step 4 : per arcsec²
                 aperture_deg = header.get('APERTURE', None)
                 aperture_arcsec = aperture_deg * 3600
                 area_arcsec2 = np.pi * (aperture_arcsec / 2)**2
 
-                # Step 5: Convert per Å → per µm (multiply by 1e4)
-                flux_photon_m2_s_um = flux_photon_m2_s_A * 1e4 / area_arcsec2
 
-                # Step 6: x axis in nm
+                flux_photon_m2_s_um = (wave * (10**(-25)) * flux) / (area_arcsec2 * hc)
+
+                # x axis in nm
                 wave_new = wave * 0.1
 
 
@@ -125,3 +115,4 @@ for i, hdu in enumerate(hdul):
 # === CLOSE FITS FILE ===
 hdul.close()
 print("\n📂 FITS file closed.")
+
