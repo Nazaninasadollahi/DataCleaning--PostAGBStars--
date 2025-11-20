@@ -172,7 +172,7 @@ wave_sky_broadened, trans_sky_broadened = res_broad(wave_sky_filt, trans_sky_fil
 
 
 # =====================================================
-# 4) INTERPOLATE SKYCALC TO YOUR WAVELENGTH GRID
+# 4) INTERPOLATION
 # =====================================================
 from scipy.interpolate import interp1d
 trans_interp = interp1d(wave_sky_broadened, trans_sky_broadened, kind='nearest',
