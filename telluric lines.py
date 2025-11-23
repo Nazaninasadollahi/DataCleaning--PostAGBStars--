@@ -23,13 +23,35 @@ for hdu in hdul_data:
         flux_filtered = flux[mask]
 
         #normalization
-        z = np.polyfit(wave_filtered, flux_filtered, 1)
+        #z = np.polyfit(wave_filtered, flux_filtered, 1)
+        #p = np.poly1d(z)
+        #cnt = p(wave_filtered)
+        #flux_normalized = flux_filtered / cnt
+
+        #flux_normalized /= np.nanmax(flux_normalized)  # forces the peak to exactly 1.0
+        #flux_filtered = flux_normalized
+
+        # === NEW NORMALIZATION FOR TELESCOPE ===
+
+        # 1) fit a smooth continuum with a higher-order polynomial
+        z = np.polyfit(wave_filtered, flux_filtered, 3)  # 3rd-degree is much more stable
         p = np.poly1d(z)
         cnt = p(wave_filtered)
+
+        # 2) divide flux by continuum (this makes continuum ~1 everywhere)
         flux_normalized = flux_filtered / cnt
 
-        flux_normalized /= np.nanmax(flux_normalized)  # forces the peak to exactly 1.0
+        # 3) DO NOT divide by maximum → this distorts continuum
+        # flux_normalized /= np.nanmax(flux_normalized)  # remove this line completely
+
+        # 4) optional: force median continuum to exactly 1
+        cont_mask = flux_normalized > 0.9  # pixels near continuum
+        scale = np.median(flux_normalized[cont_mask])
+        flux_normalized /= scale
+
+        # final result
         flux_filtered = flux_normalized
+
         break
 
 hdul_data.close()
@@ -178,17 +200,20 @@ wave_sky_broadened, trans_sky_broadened = res_broad(wave_sky_filt, trans_sky_fil
 plt.figure(figsize=(12, 6))
 
 # Telescope flux
-plt.plot(wave_filtered, flux_filtered, label='Telescope Flux (converted)', alpha=0.7)
+plt.plot(wave_filtered, flux_filtered, label='Telescope Flux', alpha=0.7)
 
-# Transmission on second axis
-ax2 = plt.gca().twinx()
-ax2.plot(wave_sky_broadened, trans_sky_broadened, color="green", label='SkyCalc Transmission', alpha=0.8)
+# SkyCalc broadened transmission
+plt.plot(wave_sky_broadened, trans_sky_broadened,
+         label='SkyCalc Transmission',
+         alpha=0.7)
 
-plt.title("Telescope Spectrum + SkyCalc Transmission (6000–8000 Å)")
+# Final settings
 plt.xlabel("Wavelength (Å)")
+plt.ylabel("Normalized Flux / Transmission")
+plt.title("Telescope Flux vs SkyCalc Transmission (6000–6800 Å)")
+plt.legend()
 plt.grid(True)
 
-plt.legend(loc='upper left')
-ax2.set_ylabel("Transmission (0–1)")
-
+plt.xlim(6000, 6800)    # exact same axis range
+plt.ylim(0, 1.2)        # adjust so both fit (your telescope goes up to ~1.1)
 plt.show()
