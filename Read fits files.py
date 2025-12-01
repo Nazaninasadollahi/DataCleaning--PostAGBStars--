@@ -1,8 +1,9 @@
 from astropy.io import fits
 import matplotlib.pyplot as plt
+import numpy as np
 
 # === FILE'S NAME ===
-file_path = "output_geocentric_file.fits"
+file_path = "telescope_shifted.fits"
 
 # === OPEN FITS FILE ===
 hdul = fits.open(file_path)
@@ -31,7 +32,8 @@ for i, hdu in enumerate(hdul):
     print("\n🔍 Reference frame keywords:")
     for key in ['SPECSYS', 'SSYSOBS', 'SSYSSRC', 'VELREF',
                 'OBSGEO-L', 'OBSGEO-B', 'OBSGEO-H',
-                'RADECSYS', 'WCSNAME', 'ESO TEL GEOLAT', 'ESO TEL GEOLON', 'ESO TEL GEOELEV', 'DATE-OBS', 'RA', 'DEC', 'EQUINOX']:
+                'RADECSYS', 'WCSNAME', 'ESO TEL GEOLAT', 'ESO TEL GEOLON', 'ESO TEL GEOELEV', 'DATE-OBS',
+                'RA', 'DEC', 'EQUINOX', 'APERTURE', 'HIERARCH ESO TEL FOCU SCALE', 'SPEC_RES']:
         value = header.get(key)
         if value is not None:
             try:
@@ -64,30 +66,36 @@ for i, hdu in enumerate(hdul):
             for row in data[:1]:
                 print(row)
 
-            # === VISUALIZATION (for BinTableHDU with WAVE and FLUX_REDUCED) ===
-            if all(col in data.names for col in ['WAVE', 'FLUX_REDUCED']):
+            # === VISUALIZATION (for BinTableHDU with WAVE and FLUX) ===
+            if all(col in data.names for col in ['WAVE', 'FLUX']):
                 wave = data['WAVE'][0]  # Single row, so [0]
-                flux_reduced = data['FLUX_REDUCED'][0]
+                flux = data['FLUX'][0]
 
+                # === UNIT CONVERSION: from erg/cm^2/s/Å to photons/s/m^2/µm/arcsec^2 ===
+                h = 6.62607015e-34  # Planck constant [J s]
+                c = 299792458.0  # speed of light [m/s]
+                hc = h * c  # J·m
+
+                aperture_deg = header.get('APERTURE', None)
+                aperture_arcsec = aperture_deg * 3600
+                area_arcsec2 = np.pi * (aperture_arcsec / 2) ** 2
+
+                flux_photon_m2_s_um = (wave * (10 ** (-25)) * flux) / (area_arcsec2 * hc)
+
+                # === Filter wavelength range: 6000–8000 Å ===
+                mask = (wave >= 6000) & (wave <= 8000)
+                wave_filtered = wave[mask]
+                flux_filtered = flux_photon_m2_s_um[mask]
+
+                # === PLOT FILTERED RANGE ===
                 plt.figure(figsize=(10, 6))
-                plt.plot(wave, flux_reduced, label='Reduced Flux', color='blue')
-                plt.xlabel(f'Wavelength ({header.get("TUNIT1", "Å")})')
-                plt.ylabel(f'Flux ({header.get("TUNIT2", "ADU")})')
-                plt.title(f'Spectrum from HDU {i}')
+                plt.plot(wave_filtered, flux_filtered, label='Converted Flux (ph/s/m²/µm/arcsec²)', color='red')
+                plt.xlabel('Wavelength [Å]')
+                plt.ylabel('Flux')
+                plt.title(f'Spectrum from HDU {i} (6000–8000 Å)')
                 plt.legend()
                 plt.grid(True)
                 plt.show()
-            else:
-                print("Required columns (WAVE, FLUX_REDUCED) not found in this HDU.")
-        else:
-            print("Data type: Not a table (skipping data processing).")
-            unit = header.get('BUNIT', '[No unit specified]')
-            print(f"Unit (if any): {unit}")
-            print(f"Raw data: {data}")
-    else:
-        print("No data found in this HDU.")
-        unit = header.get('BUNIT', '[No unit specified]')
-        print(f"Unit (if any): {unit}")
 
 # === CLOSE FITS FILE ===
 hdul.close()
