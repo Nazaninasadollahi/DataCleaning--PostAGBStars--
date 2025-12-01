@@ -2,7 +2,7 @@ from astropy.io import fits
 import matplotlib.pyplot as plt
 
 # === FILE'S NAME ===
-file_path = "skytable.fits"
+file_path = "skytable (2).fits"
 
 # === OPEN FITS FILE ===
 hdul = fits.open(file_path)
