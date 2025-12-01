@@ -1,7 +1,10 @@
 from astropy.io import fits
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy import interpolate
 from astropy.convolution import Gaussian1DKernel, convolve
+from numpy.fft import fft, ifft, fftshift
+
 # =====================================================
 # 1) LOAD TELESCOPE DATA
 # =====================================================
@@ -217,3 +220,66 @@ plt.grid(True)
 plt.xlim(6000, 6800)    # exact same axis range
 plt.ylim(0, 1.2)        # adjust so both fit (your telescope goes up to ~1.1)
 plt.show()
+
+
+
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# define the same grid interpolation
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+def same_grid(wave1, flux1, wave2, flux2):
+    # find the min and max intervals
+    minv = min(wave1)
+    maxv = max(wave1)
+    if min(wave2) > minv: minv = min(wave2)
+    if max(wave2) < maxv: maxv = max(wave2)
+    # make a grid
+    grid = np.arange(minv+0.02, maxv-0.02, 0.02)
+    f = interpolate.interp1d(np.array(wave1), np.array(flux1), kind='cubic')
+    flux1 = f(grid)
+    f = interpolate.interp1d(np.array(wave2), np.array(flux2), kind='cubic')
+    flux2 = f(grid)
+    return grid, flux1, flux2
+
+
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#cross correlation
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+def cross_correlat(x1, y1, x2, y2, yshift=False):
+    # -----------------------------------------------------------
+    #  apply cross correlation on data
+    #  the x1, y1 are reference spectrum and the x2, y2 would move
+    #  to the same grid similar to the reference.
+    #  Example:
+    #         deltaX = cross_correlat(x1, y1, x2, y2)
+    #         x2 = x2 + deltaX
+    # -----------------------------------------------------------
+    Lm = np.diff(x1)[0]
+    grid, y2, y1 = same_grid(x2, y2, x1, y1)
+
+
+    if yshift == False:
+        assert len(y2) == len(y1)
+        f1 = fft(y2)
+        f2 = fft(np.flipud(y1))
+        real_part = np.real(ifft(f1 * f2))
+        cc = fftshift(real_part)
+        assert len(cc) == len(y2)
+        zero_index = int(len(y2) / 2) - 1
+        lshift = zero_index - np.argmax(cc)
+        delta_shift = (lshift*Lm)
+
+    # if yshift == True:
+
+    return delta_shift
+
+# wavelength range of the telluric lines
+mask_telluric = (wave_filtered >= 6298) & (wave_filtered <= 6300)
+wave_tel_region = wave_filtered[mask_telluric]
+flux_tel_region = flux_filtered[mask_telluric]
+
+mask_sky = (wave_sky_broadened >= 6298) & (wave_sky_broadened <= 6300)
+wave_sky_region = wave_sky_broadened[mask_sky]
+flux_sky_region = trans_sky_broadened[mask_sky]
+
+delta_shift = cross_correlat(wave_sky_region, flux_sky_region, wave_tel_region, flux_tel_region)
+print("Wavelength shift in Å for 6298–6300 region:", delta_shift)
