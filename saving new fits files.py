@@ -299,8 +299,10 @@ for hdu in hdul_original:
         break
 
 # Save to new file
-output_file = "telescope_shifted.fits"
+base_name = Path(file_path_data).stem
+output_file = f"{base_name}_shifted.fits"
 hdul_original.writeto(output_file, overwrite=True)
 
+print("Saved new shifted FITS file as:", output_file)
 print("Saved new shifted FITS file as:", output_file)
 
