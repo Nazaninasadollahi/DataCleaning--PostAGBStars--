@@ -11,3 +11,5 @@ Step 3: Use SKYCALC for simulation → Fill the first section on the SkyCalc web
 Step 4: Compare the telescope data with the telluric lines from SKYCALC to perform telluric calibration. Use the “telluric lines” code.
 
 Step 5: Shift the telescope data for calibration and save the new FITS files.
+
+**You can do step 4 and 5 using an interactive code (Red part.py)**
