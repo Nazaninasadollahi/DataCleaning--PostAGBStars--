@@ -1,6 +1,6 @@
-Data Cleaning
+**Data Cleaning**
 
-For the BD+33 2642 star, Red part (6000–7000 Å)
+For the BD+33 2642 star, **Red part** (6000–7000 Å)
 
 Step 1: Read the FITS files.
 
@@ -12,4 +12,6 @@ Step 4: Compare the telescope data with the telluric lines from SKYCALC to perfo
 
 Step 5: Shift the telescope data for calibration and save the new FITS files.
 
-**You can do step 4 and 5 using an interactive code (Red part.py)**
+You can do step 4 and 5 using an interactive code (Red part.py).
+
+**Blue part**
