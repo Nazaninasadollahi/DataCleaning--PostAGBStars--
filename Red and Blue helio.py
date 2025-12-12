@@ -39,6 +39,10 @@ with fits.open(file_path_blue) as hdul:
     if wave_blue is None:
         raise RuntimeError("Could not find WAVE/FLUX columns in blue file")
 
+    mask_b = (wave_blue >= 3400) & (wave_blue <= 4500)
+    wave_blue = wave_blue[mask_b]
+    flux_blue = flux_blue[mask_b]
+
 
 # -------------------------
 # 3) HELIOCENTRIC CORRECTION – SEPARATE FOR RED AND BLUE
@@ -94,15 +98,13 @@ print(f"  Difference   : {v_heli_red - v_heli_blue:+.3f} km/s")
 # =====================================================
 # 5) CONVERT WAVELENGTH → VELOCITY (around l0)
 # =====================================================
-l0 = 3302.369
+l0_red = 5889.951 #NaI_5889
+l0_blue = 3933.663 #CaII_3934
 
 # Classical non-relativistic Doppler formula
-vel_red  = c * (wave_red_helio) / l0   # km/s
-vel_blue = c * (wave_blue_helio) / l0   # km/s
+vel_red  = c * (wave_red_helio) / (l0_red)  # km/s
+vel_blue = c * (wave_blue_helio) / (l0_blue)  # km/s
 
-print(f"\nVelocity arrays created relative to λ₀ = {l0} Å")
-print(f"   Red : {vel_red[0]:+.1f} ... {vel_red[-1]:+.1f} km/s")
-print(f"   Blue : {vel_blue[0]:+.1f} ... {vel_blue[-1]:+.1f} km/s")
 
 
 # =====================================================
@@ -115,9 +117,8 @@ plt.figure(figsize=(12,5))
 plt.plot(vel_red, flux_red, 'r-', lw=1, label='RED')
 # Plot BLUE
 plt.plot(vel_blue, flux_blue, 'b-', lw=1, alpha=0.7, label='BLUE')
-plt.xlabel(f"Velocity relative to λ = {l0} Å  (km/s)")
+plt.xlabel(f"Velocity")
 plt.ylabel("Flux")
-plt.title(f"Heliocentric-corrected spectrum – centered on λ₀ = {l0} Å")
 plt.legend()
 plt.grid(alpha=0.3)
 plt.tight_layout()
